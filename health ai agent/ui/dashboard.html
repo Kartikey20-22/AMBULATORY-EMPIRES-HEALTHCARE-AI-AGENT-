@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ambulatory Empires — Healthcare AI Agent</title>
+  <meta name="description" content="Intelligent 2026 healthcare navigation across outpatient surge, hospital-at-home, and retail health pathways.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-deep:    #060b14;
+      --bg-card:    rgba(14, 22, 38, 0.85);
+      --bg-glass:   rgba(255,255,255,0.04);
+      --border:     rgba(255,255,255,0.08);
+      --accent-cyan:  #00d4ff;
+      --accent-blue:  #3b82f6;
+      --accent-green: #10b981;
+      --accent-yellow:#f59e0b;
+      --accent-red:   #ef4444;
+      --accent-purple:#8b5cf6;
+      --text-primary: #f1f5f9;
+      --text-secondary:#94a3b8;
+      --text-muted:   #4b5563;
+      --glow-cyan:    0 0 40px rgba(0,212,255,0.15);
+      --glow-green:   0 0 40px rgba(16,185,129,0.15);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated background mesh ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background:
+        radial-gradient(ellipse 80% 40% at 20% 20%, rgba(59,130,246,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 80%, rgba(0,212,255,0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 60% at 50% 50%, rgba(139,92,246,0.04) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ── Layout ── */
+    .layout { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; position: relative; z-index: 1; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      background: rgba(8,14,26,0.95);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      display: flex; flex-direction: column; gap: 8px;
+      position: sticky; top: 0; height: 100vh; overflow-y: auto;
+      backdrop-filter: blur(20px);
+    }
+
+    .logo {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 8px;
+    }
+    .logo-icon {
+      width: 42px; height: 42px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      display: grid; place-items: center; font-size: 20px;
+      box-shadow: var(--glow-cyan);
+      flex-shrink: 0;
+    }
+    .logo-text { display: flex; flex-direction: column; }
+    .logo-title { font-size: 13px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.5px; }
+    .logo-sub   { font-size: 10px; color: var(--accent-cyan); font-weight: 500; letter-spacing: 1px; text-transform: uppercase; }
+
+    .nav-section-label {
+      font-size: 10px; font-weight: 600; color: var(--text-muted);
+      letter-spacing: 1.2px; text-transform: uppercase;
+      padding: 8px 16px 4px;
+    }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; border-radius: 10px;
+      cursor: pointer; transition: all 0.2s;
+      color: var(--text-secondary); font-size: 13px; font-weight: 500;
+      border: 1px solid transparent;
+    }
+    .nav-item:hover { background: var(--bg-glass); color: var(--text-primary); }
+    .nav-item.active {
+      background: rgba(0,212,255,0.08);
+      border-color: rgba(0,212,255,0.2);
+      color: var(--accent-cyan);
+    }
+    .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+    .sidebar-footer {
+      margin-top: auto; padding: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .api-status {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: var(--text-secondary);
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+      animation: pulse-dot 2s infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; } 50% { opacity: 0.4; }
+    }
+
+    /* ── Main area ── */
+    .main { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+    /* ── Page panels ── */
+    .page { display: none; flex-direction: column; height: 100%; }
+    .page.active { display: flex; }
+
+    /* ── Header bar ── */
+    .topbar {
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(6,11,20,0.8);
+      backdrop-filter: blur(20px);
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .topbar-title { font-size: 16px; font-weight: 600; }
+    .topbar-subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .session-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; padding: 4px 10px;
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-secondary);
+    }
+
+    /* ── Chat page ── */
+    .chat-messages {
+      flex: 1; overflow-y: auto; padding: 24px 28px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .chat-messages::-webkit-scrollbar { width: 4px; }
+    .chat-messages::-webkit-scrollbar-track { background: transparent; }
+    .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .msg { display: flex; gap: 12px; max-width: 85%; animation: fadeUp 0.3s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    .msg.user { flex-direction: row-reverse; align-self: flex-end; }
+    .msg.agent { align-self: flex-start; }
+
+    .msg-avatar {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: grid; place-items: center; font-size: 16px;
+      flex-shrink: 0; align-self: flex-end;
+    }
+    .msg.user .msg-avatar  { background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); }
+    .msg.agent .msg-avatar { background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green)); }
+
+    .msg-bubble {
+      padding: 12px 16px; border-radius: 14px;
+      font-size: 13.5px; line-height: 1.65;
+    }
+    .msg.user .msg-bubble {
+      background: linear-gradient(135deg, rgba(59,130,246,0.25), rgba(139,92,246,0.2));
+      border: 1px solid rgba(59,130,246,0.25);
+    }
+    .msg.agent .msg-bubble {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+    }
+
+    .msg-meta { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+    .msg.user .msg-meta { text-align: right; }
+
+    /* Route badge in messages */
+    .route-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11px; font-weight: 600; padding: 3px 8px;
+      border-radius: 6px; margin-bottom: 8px;
+    }
+    .route-EMERGENCY { background: rgba(239,68,68,0.15); color: var(--accent-red); border: 1px solid rgba(239,68,68,0.3); }
+    .route-ASC       { background: rgba(59,130,246,0.12); color: var(--accent-blue); border: 1px solid rgba(59,130,246,0.25); }
+    .route-HOME_MONITORING { background: rgba(16,185,129,0.12); color: var(--accent-green); border: 1px solid rgba(16,185,129,0.25); }
+    .route-RETAIL    { background: rgba(245,158,11,0.12); color: var(--accent-yellow); border: 1px solid rgba(245,158,11,0.25); }
+
+    /* Chat input */
+    .chat-input-area {
+      padding: 16px 28px 24px;
+      border-top: 1px solid var(--border);
+      background: rgba(6,11,20,0.6);
+      flex-shrink: 0;
+    }
+    .chat-input-wrap {
+      display: flex; gap: 10px; align-items: flex-end;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px; padding: 12px 14px;
+      transition: border-color 0.2s;
+    }
+    .chat-input-wrap:focus-within { border-color: rgba(0,212,255,0.4); box-shadow: var(--glow-cyan); }
+
+    #chatInput {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: var(--text-primary); font-size: 13.5px; font-family: 'Inter', sans-serif;
+      resize: none; max-height: 120px; line-height: 1.5;
+    }
+    #chatInput::placeholder { color: var(--text-muted); }
+
+    .send-btn {
+      width: 36px; height: 36px; border-radius: 9px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      border: none; cursor: pointer; display: grid; place-items: center;
+      font-size: 16px; flex-shrink: 0;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .send-btn:hover { transform: translateY(-1px); box-shadow: var(--glow-cyan); }
+    .send-btn:disabled { opacity: 0.5; pointer-events: none; }
+
+    .quick-actions {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;
+    }
+    .quick-btn {
+      font-size: 11px; padding: 5px 12px; border-radius: 20px;
+      background: var(--bg-glass); border: 1px solid var(--border);
+      color: var(--text-secondary); cursor: pointer;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .quick-btn:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+
+    /* ── Vitals page ── */
+    .vitals-content { flex: 1; overflow-y: auto; padding: 24px 28px; }
+    .vitals-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px; margin-bottom: 24px;
+    }
+    .vitals-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px; padding: 20px;
+      display: flex; flex-direction: column; gap: 8px;
+      transition: border-color 0.2s;
+    }
+    .vitals-card:hover { border-color: rgba(0,212,255,0.2); }
+    .vitals-label { font-size: 11px; color: var(--text-secondary); font-weight: 500; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; }
+    .vitals-value { font-size: 32px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+    .vitals-unit  { font-size: 12px; color: var(--text-muted); }
+    .vitals-status { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; align-self: flex-start; margin-top: 4px; }
+    .status-normal  { background: rgba(16,185,129,0.15); color: var(--accent-green); }
+    .status-high    { background: rgba(239,68,68,0.15);  color: var(--accent-red); }
+    .status-low     { background: rgba(245,158,11,0.15); color: var(--accent-yellow); }
+
+    .vitals-input-form {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 24px; margin-bottom: 24px;
+    }
+    .form-title { font-size: 14px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .form-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-label { font-size: 11px; color: var(--text-secondary); font-weight: 500; }
+    .form-input {
+      background: var(--bg-glass); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 12px;
+      color: var(--text-primary); font-size: 13px;
+      outline: none; transition: border-color 0.2s;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .form-input:focus { border-color: rgba(0,212,255,0.4); }
+    .form-input::placeholder { color: var(--text-muted); }
+    .analyze-btn {
+      margin-top: 16px; padding: 10px 24px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      border: none; border-radius: 10px;
+      color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .analyze-btn:hover { transform: translateY(-1px); box-shadow: var(--glow-cyan); }
+
+    /* Chart */
+    .chart-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 24px;
+    }
+    .chart-title { font-size: 14px; font-weight: 600; margin-bottom: 16px; }
+    .chart-wrap { height: 220px; }
+
+    /* ── Dashboard / overview page ── */
+    .overview-content { flex: 1; overflow-y: auto; padding: 24px 28px; }
+
+    .stats-row {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 16px; margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 20px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .stat-card:hover { border-color: rgba(0,212,255,0.25); transform: translateY(-2px); }
+    .stat-icon { font-size: 24px; margin-bottom: 10px; }
+    .stat-value { font-size: 28px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+    .stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+    .stat-trend { font-size: 11px; color: var(--accent-green); margin-top: 8px; display: flex; align-items: center; gap: 4px; }
+
+    .pillars-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 16px; margin-bottom: 24px;
+    }
+    .pillar-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 24px;
+      position: relative; overflow: hidden;
+      transition: border-color 0.3s;
+    }
+    .pillar-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    }
+    .pillar-card.asc::before         { background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple)); }
+    .pillar-card.home::before         { background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan)); }
+    .pillar-card.retail::before       { background: linear-gradient(90deg, var(--accent-yellow), #f97316); }
+    .pillar-card:hover { border-color: rgba(0,212,255,0.25); }
+
+    .pillar-icon { font-size: 28px; margin-bottom: 12px; }
+    .pillar-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+    .pillar-desc  { font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 14px; }
+    .pillar-stat  { font-size: 11px; font-weight: 600; color: var(--accent-cyan); display: flex; align-items: center; gap: 5px; }
+
+    .fact-banner {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    .fact-card {
+      background: var(--bg-glass); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px 20px;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .fact-num { font-size: 22px; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: var(--accent-cyan); flex-shrink: 0; }
+    .fact-text { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+    /* ── Typing indicator ── */
+    .typing { display: flex; align-items: center; gap: 4px; padding: 12px 16px; }
+    .typing-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent-cyan);
+      animation: typing-bounce 1.2s infinite;
+    }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typing-bounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+      40%           { transform: translateY(-6px); opacity: 1; }
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* ── Alert banner ── */
+    .alert-banner {
+      margin: 0 28px 12px;
+      padding: 12px 16px; border-radius: 10px;
+      display: flex; align-items: center; gap: 10px;
+      font-size: 12px; font-weight: 500; display: none;
+    }
+    .alert-banner.emergency {
+      display: flex;
+      background: rgba(239,68,68,0.15);
+      border: 1px solid rgba(239,68,68,0.4);
+      color: var(--accent-red);
+      animation: pulse-border 1s infinite;
+    }
+    @keyframes pulse-border {
+      0%, 100% { border-color: rgba(239,68,68,0.4); }
+      50% { border-color: rgba(239,68,68,0.9); }
+    }
+
+    /* ── Welcome message ── */
+    .welcome-msg {
+      background: linear-gradient(135deg, rgba(0,212,255,0.05), rgba(59,130,246,0.05));
+      border: 1px solid rgba(0,212,255,0.15); border-radius: 14px;
+      padding: 20px 22px; margin-bottom: 4px;
+      font-size: 13px; line-height: 1.7; color: var(--text-secondary);
+    }
+    .welcome-msg strong { color: var(--text-primary); }
+    .welcome-msg h3 { color: var(--accent-cyan); font-size: 14px; margin-bottom: 8px; }
+
+  </style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">🏥</div>
+      <div class="logo-text">
+        <span class="logo-title">Ambulatory Empires</span>
+        <span class="logo-sub">Healthcare AI · 2026</span>
+      </div>
+    </div>
+
+    <span class="nav-section-label">Navigation</span>
+    <div class="nav-item active" id="nav-overview" onclick="showPage('overview')">
+      <span class="nav-icon">📊</span> Dashboard
+    </div>
+    <div class="nav-item" id="nav-chat" onclick="showPage('chat')">
+      <span class="nav-icon">💬</span> AI Agent Chat
+    </div>
+    <div class="nav-item" id="nav-vitals" onclick="showPage('vitals')">
+      <span class="nav-icon">❤️</span> Vitals Monitor
+    </div>
+
+    <span class="nav-section-label" style="margin-top:8px;">Care Pathways</span>
+    <div class="nav-item" onclick="quickChat('I need help finding an ASC for my knee replacement surgery')">
+      <span class="nav-icon">🏥</span> Outpatient / ASC
+    </div>
+    <div class="nav-item" onclick="quickChat('I have heart failure and need help with home monitoring')">
+      <span class="nav-icon">🏠</span> Hospital-at-Home
+    </div>
+    <div class="nav-item" onclick="quickChat('I need a flu shot and annual physical near me')">
+      <span class="nav-icon">🏪</span> Retail Health
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="api-status">
+        <span class="status-dot"></span>
+        <span id="apiStatusText">API: Connecting...</span>
+      </div>
+      <div style="font-size:10px; color:var(--text-muted); margin-top:6px;">
+        Session: <span id="sidebarSessionId" style="font-family:'JetBrains Mono', monospace;">—</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main content ── -->
+  <main class="main">
+
+    <!-- ═══ OVERVIEW PAGE ═══ -->
+    <div class="page active" id="page-overview">
+      <div class="topbar">
+        <div>
+          <div class="topbar-title">Healthcare Dashboard</div>
+          <div class="topbar-subtitle">2026 Ambulatory Empires — Real-time Care Navigation</div>
+        </div>
+        <span class="session-badge" id="overviewSession">Loading...</span>
+      </div>
+      <div class="overview-content">
+
+        <!-- Stats row -->
+        <div class="stats-row">
+          <div class="stat-card">
+            <div class="stat-icon">💊</div>
+            <div class="stat-value" style="color:var(--accent-cyan)">40%</div>
+            <div class="stat-label">Reduction in hospital-acquired infections</div>
+            <div class="stat-trend">↑ vs traditional hospital care</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">💰</div>
+            <div class="stat-value" style="color:var(--accent-green)">50%</div>
+            <div class="stat-label">Cost savings — ASC vs hospital procedures</div>
+            <div class="stat-trend">↑ Better outcomes, lower costs</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📉</div>
+            <div class="stat-value" style="color:var(--accent-yellow)">30%</div>
+            <div class="stat-label">Fewer readmissions with Remote Monitoring</div>
+            <div class="stat-trend">↑ RPM-enabled interventions</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">⏰</div>
+            <div class="stat-value" style="color:var(--accent-purple)">48h</div>
+            <div class="stat-label">Early detection — wearables before symptoms</div>
+            <div class="stat-trend">↑ AI-driven predictive alerts</div>
+          </div>
+        </div>
+
+        <!-- Pillars -->
+        <div class="pillars-grid">
+          <div class="pillar-card asc" onclick="quickChat('Tell me about outpatient surgery options at ASCs')">
+            <div class="pillar-icon">🏥</div>
+            <div class="pillar-title">Outpatient Surge</div>
+            <div class="pillar-desc">Complex surgeries — joint replacements, cataracts, hernias — now performed in specialized Ambulatory Surgery Centers with same-day discharge.</div>
+            <div class="pillar-stat">🔗 Find ASC Centers</div>
+          </div>
+          <div class="pillar-card home" onclick="quickChat('How do I set up hospital-at-home monitoring for heart failure?')">
+            <div class="pillar-icon">🏠</div>
+            <div class="pillar-title">Hospital-at-Home</div>
+            <div class="pillar-desc">Real-time vital sign monitoring via wearables and IoT devices. AI-driven alerts catch negative trends 48 hours before symptoms appear.</div>
+            <div class="pillar-stat">🔗 Setup RPM Devices</div>
+          </div>
+          <div class="pillar-card retail" onclick="quickChat('I want to find a retail health clinic for a flu shot and physical')">
+            <div class="pillar-icon">🏪</div>
+            <div class="pillar-title">Retail Health</div>
+            <div class="pillar-desc">Pharmacies evolved into full-service primary care hubs. Employer clinics offer NP/PA services with 40-60% cost savings vs urgent care.</div>
+            <div class="pillar-stat">🔗 Find Retail Clinics</div>
+          </div>
+        </div>
+
+        <!-- Key facts -->
+        <div class="fact-banner">
+          <div class="fact-card">
+            <div class="fact-num">85%</div>
+            <div class="fact-text">of patients prefer retail clinics for non-emergency care — faster, convenient, affordable</div>
+          </div>
+          <div class="fact-card">
+            <div class="fact-num">50%</div>
+            <div class="fact-text">lower cost for ASC procedures compared to equivalent hospital-based surgeries</div>
+          </div>
+          <div class="fact-card">
+            <div class="fact-num">24/7</div>
+            <div class="fact-text">continuous vital monitoring via smart wearables feeding real-time data to care teams</div>
+          </div>
+          <div class="fact-card">
+            <div class="fact-num">30%</div>
+            <div class="fact-text">reduction in hospital readmissions through Remote Patient Monitoring programs</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ CHAT PAGE ═══ -->
+    <div class="page" id="page-chat">
+      <div class="topbar">
+        <div>
+          <div class="topbar-title">💬 AI Healthcare Agent</div>
+          <div class="topbar-subtitle">Navigate your care — powered by Gemini AI</div>
+        </div>
+        <span class="session-badge" id="chatSessionBadge">New Session</span>
+      </div>
+
+      <div class="alert-banner" id="emergencyBanner">
+        🚨 <strong>EMERGENCY DETECTED</strong> — Please call <strong>911</strong> immediately for life-threatening situations.
+      </div>
+
+      <div class="chat-messages" id="chatMessages">
+        <div class="welcome-msg">
+          <h3>👋 Welcome to Ambulatory Empires Healthcare Navigation</h3>
+          I'm your intelligent 2026 care guide. Describe your health concern and I'll route you to the right care setting — whether that's an Ambulatory Surgery Center, a Hospital-at-Home monitoring program, or a nearby retail health clinic.<br><br>
+          <strong>Try asking:</strong> "I have knee pain and may need surgery" · "My blood sugar has been high" · "I need a flu shot near me"<br><br>
+          ⚠️ <em>For emergencies, call 911. This agent does not replace professional medical advice.</em>
+        </div>
+      </div>
+
+      <div class="chat-input-area">
+        <div class="quick-actions">
+          <button class="quick-btn" onclick="quickChat('I have knee pain and my doctor mentioned surgery might be needed')">🦵 Knee Surgery</button>
+          <button class="quick-btn" onclick="quickChat('I was just discharged for heart failure. How do I monitor myself at home?')">❤️ Heart Failure RPM</button>
+          <button class="quick-btn" onclick="quickChat('I have a sore throat and fever for 2 days. Might be strep.')">🤒 Sore Throat</button>
+          <button class="quick-btn" onclick="quickChat('I need to schedule my annual physical and flu shot')">💉 Annual Physical</button>
+          <button class="quick-btn" onclick="quickChat('My blood pressure has been reading 155/92. What should I do?')">📊 High BP</button>
+        </div>
+        <div class="chat-input-wrap">
+          <textarea id="chatInput" rows="1" placeholder="Describe your health concern or ask a question..."></textarea>
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send message">➤</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ VITALS PAGE ═══ -->
+    <div class="page" id="page-vitals">
+      <div class="topbar">
+        <div>
+          <div class="topbar-title">❤️ Vitals Monitor</div>
+          <div class="topbar-subtitle">Hospital-at-Home · Remote Patient Monitoring</div>
+        </div>
+        <span class="session-badge" id="vitalsSessionBadge">Session</span>
+      </div>
+      <div class="vitals-content">
+
+        <!-- Current readings display -->
+        <div class="vitals-grid" id="vitalsGrid">
+          <div class="vitals-card" id="vc-hr">
+            <div class="vitals-label">❤️ Heart Rate</div>
+            <div class="vitals-value" style="color:var(--accent-red)">—</div>
+            <div class="vitals-unit">bpm · Normal: 60–100</div>
+            <div class="vitals-status status-normal" id="vs-hr">—</div>
+          </div>
+          <div class="vitals-card" id="vc-bp">
+            <div class="vitals-label">💉 Blood Pressure</div>
+            <div class="vitals-value" id="vv-bp" style="color:var(--accent-blue)">—</div>
+            <div class="vitals-unit">mmHg · Normal: 90–120 / 60–80</div>
+            <div class="vitals-status status-normal" id="vs-bp">—</div>
+          </div>
+          <div class="vitals-card" id="vc-o2">
+            <div class="vitals-label">🫁 Oxygen Saturation</div>
+            <div class="vitals-value" id="vv-o2" style="color:var(--accent-cyan)">—</div>
+            <div class="vitals-unit">% SpO2 · Normal: 95–100%</div>
+            <div class="vitals-status status-normal" id="vs-o2">—</div>
+          </div>
+          <div class="vitals-card" id="vc-bg">
+            <div class="vitals-label">🩸 Blood Glucose</div>
+            <div class="vitals-value" id="vv-bg" style="color:var(--accent-yellow)">—</div>
+            <div class="vitals-unit">mg/dL · Normal: 70–180</div>
+            <div class="vitals-status status-normal" id="vs-bg">—</div>
+          </div>
+          <div class="vitals-card" id="vc-temp">
+            <div class="vitals-label">🌡️ Temperature</div>
+            <div class="vitals-value" id="vv-temp" style="color:var(--accent-purple)">—</div>
+            <div class="vitals-unit">°F · Normal: 97.0–99.5</div>
+            <div class="vitals-status status-normal" id="vs-temp">—</div>
+          </div>
+          <div class="vitals-card" id="vc-rr">
+            <div class="vitals-label">💨 Respiratory Rate</div>
+            <div class="vitals-value" id="vv-rr" style="color:var(--accent-green)">—</div>
+            <div class="vitals-unit">breaths/min · Normal: 12–20</div>
+            <div class="vitals-status status-normal" id="vs-rr">—</div>
+          </div>
+        </div>
+
+        <!-- Input form -->
+        <div class="vitals-input-form">
+          <div class="form-title">📥 Enter Vitals Reading</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Heart Rate (bpm)</label>
+              <input class="form-input" id="vi-hr" type="number" placeholder="e.g. 72" min="20" max="300">
+            </div>
+            <div class="form-group">
+              <label class="form-label">BP Systolic (mmHg)</label>
+              <input class="form-input" id="vi-bps" type="number" placeholder="e.g. 118" min="60" max="250">
+            </div>
+            <div class="form-group">
+              <label class="form-label">BP Diastolic (mmHg)</label>
+              <input class="form-input" id="vi-bpd" type="number" placeholder="e.g. 75" min="40" max="150">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Oxygen Saturation (%)</label>
+              <input class="form-input" id="vi-o2" type="number" placeholder="e.g. 97" min="50" max="100" step="0.1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Blood Glucose (mg/dL)</label>
+              <input class="form-input" id="vi-bg" type="number" placeholder="e.g. 105" min="20" max="600">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Temperature (°F)</label>
+              <input class="form-input" id="vi-temp" type="number" placeholder="e.g. 98.6" min="90" max="110" step="0.1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Respiratory Rate</label>
+              <input class="form-input" id="vi-rr" type="number" placeholder="e.g. 16" min="5" max="60">
+            </div>
+          </div>
+          <button class="analyze-btn" onclick="analyzeVitals()">🔬 Analyze Vitals</button>
+        </div>
+
+        <!-- Chart -->
+        <div class="chart-card">
+          <div class="chart-title">📈 Vitals History Trend</div>
+          <div class="chart-wrap">
+            <canvas id="vitalsChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+const API_BASE = 'http://localhost:8000';
+let sessionId = null;
+let vitalsChart = null;
+const vitalsHistory = { labels: [], hr: [], o2: [], glucose: [] };
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('nav-' + page)?.classList.add('active');
+}
+
+// ── Session init ──────────────────────────────────────────────────────────────
+async function initSession() {
+  try {
+    const res = await fetch(`${API_BASE}/welcome`);
+    if (res.ok) {
+      const data = await res.json();
+      sessionId = data.session_id;
+      updateSessionBadges();
+      document.getElementById('apiStatusText').textContent = 'API: Connected ✓';
+    } else {
+      throw new Error('API not reachable');
+    }
+  } catch (e) {
+    sessionId = 'offline-' + Math.random().toString(36).slice(2, 9);
+    document.getElementById('apiStatusText').textContent = 'API: Offline (start server)';
+    updateSessionBadges();
+  }
+}
+
+function updateSessionBadges() {
+  const short = sessionId?.slice(0, 8) + '…';
+  document.getElementById('chatSessionBadge').textContent = short;
+  document.getElementById('vitalsSessionBadge').textContent = short;
+  document.getElementById('overviewSession').textContent = short;
+  document.getElementById('sidebarSessionId').textContent = short;
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+const ROUTE_ICONS = { EMERGENCY:'🚨', ASC:'🏥', HOME_MONITORING:'🏠', RETAIL:'🏪', UNKNOWN:'❓' };
+
+function appendMessage(role, text, routeInfo) {
+  const container = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+
+  const avatar = document.createElement('div');
+  avatar.className = 'msg-avatar';
+  avatar.textContent = role === 'user' ? '👤' : '🤖';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+
+  if (routeInfo) {
+    const badge = document.createElement('div');
+    badge.className = `route-badge route-${routeInfo.route}`;
+    badge.textContent = `${ROUTE_ICONS[routeInfo.route] || '❓'} ${routeInfo.route} · ${Math.round(routeInfo.confidence * 100)}%`;
+    bubble.appendChild(badge);
+    bubble.appendChild(document.createElement('br'));
+  }
+
+  // Render simple markdown-like text
+  const para = document.createElement('div');
+  para.innerHTML = text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, '<code style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:3px;font-family:JetBrains Mono,monospace;font-size:12px">$1</code>')
+    .replace(/\n/g, '<br>');
+  bubble.appendChild(para);
+
+  const meta = document.createElement('div');
+  meta.className = 'msg-meta';
+  meta.textContent = new Date().toLocaleTimeString();
+  bubble.appendChild(meta);
+
+  div.appendChild(avatar);
+  div.appendChild(bubble);
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function showTyping() {
+  const container = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'msg agent';
+  div.id = 'typing-indicator';
+
+  const avatar = document.createElement('div');
+  avatar.className = 'msg-avatar';
+  avatar.textContent = '🤖';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.innerHTML = '<div class="typing"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+
+  div.appendChild(avatar);
+  div.appendChild(bubble);
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  document.getElementById('sendBtn').disabled = true;
+
+  appendMessage('user', text);
+  showPage('chat');
+
+  const typingEl = showTyping();
+
+  try {
+    const res = await fetch(`${API_BASE}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, session_id: sessionId }),
+    });
+
+    typingEl.remove();
+
+    if (res.ok) {
+      const data = await res.json();
+      sessionId = data.session_id;
+      updateSessionBadges();
+
+      appendMessage('agent', data.reply, {
+        route: data.care_route,
+        confidence: data.confidence,
+      });
+
+      if (data.care_route === 'EMERGENCY') {
+        document.getElementById('emergencyBanner').classList.add('emergency');
+        setTimeout(() => document.getElementById('emergencyBanner').classList.remove('emergency'), 10000);
+      }
+    } else {
+      appendMessage('agent', '⚠️ API error — please ensure the FastAPI server is running (`python main.py serve`).');
+    }
+  } catch (err) {
+    typingEl.remove();
+    appendMessage('agent',
+      '⚠️ Cannot reach the AI agent server.\n\n' +
+      '**To start the server:**\n1. Open terminal in the project folder\n' +
+      '2. Run: `python main.py serve`\n3. Return here and try again.');
+  }
+
+  document.getElementById('sendBtn').disabled = false;
+  input.focus();
+}
+
+function quickChat(text) {
+  document.getElementById('chatInput').value = text;
+  showPage('chat');
+  sendMessage();
+}
+
+// Auto-resize textarea
+document.getElementById('chatInput').addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+document.getElementById('chatInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+// ── Vitals ────────────────────────────────────────────────────────────────────
+const THRESHOLDS = {
+  hr:   { min: 60,  max: 100 },
+  bps:  { min: 90,  max: 120 },
+  bpd:  { min: 60,  max: 80  },
+  o2:   { min: 95,  max: 100 },
+  bg:   { min: 70,  max: 180 },
+  temp: { min: 97.0, max: 99.5 },
+  rr:   { min: 12,  max: 20  },
+};
+
+function getVitalStatus(value, min, max) {
+  if (value < min)  return { label: 'LOW',    cls: 'status-low' };
+  if (value > max)  return { label: 'HIGH',   cls: 'status-high' };
+  return { label: 'NORMAL', cls: 'status-normal' };
+}
+
+async function analyzeVitals() {
+  const vals = {
+    heart_rate:                  parseFloat(document.getElementById('vi-hr').value)   || null,
+    blood_pressure_systolic:     parseFloat(document.getElementById('vi-bps').value)  || null,
+    blood_pressure_diastolic:    parseFloat(document.getElementById('vi-bpd').value)  || null,
+    oxygen_saturation:           parseFloat(document.getElementById('vi-o2').value)   || null,
+    blood_glucose:               parseFloat(document.getElementById('vi-bg').value)   || null,
+    temperature:                 parseFloat(document.getElementById('vi-temp').value) || null,
+    respiratory_rate:            parseFloat(document.getElementById('vi-rr').value)   || null,
+    session_id: sessionId,
+  };
+
+  // Rule-based local display (instant)
+  if (vals.heart_rate)               updateVitalCard('hr',   vals.heart_rate,  THRESHOLDS.hr,  'vv-hr',   'vs-hr');
+  if (vals.blood_pressure_systolic)  updateBPCard(vals.blood_pressure_systolic, vals.blood_pressure_diastolic);
+  if (vals.oxygen_saturation)        updateVitalCard('o2',   vals.oxygen_saturation, THRESHOLDS.o2,  'vv-o2',   'vs-o2');
+  if (vals.blood_glucose)            updateVitalCard('bg',   vals.blood_glucose,     THRESHOLDS.bg,  'vv-bg',   'vs-bg');
+  if (vals.temperature)              updateVitalCard('temp', vals.temperature,   THRESHOLDS.temp, 'vv-temp', 'vs-temp');
+  if (vals.respiratory_rate)        updateVitalCard('rr',   vals.respiratory_rate, THRESHOLDS.rr,  'vv-rr',   'vs-rr');
+
+  // Update chart
+  const now = new Date().toLocaleTimeString();
+  vitalsHistory.labels.push(now);
+  if (vals.heart_rate)         vitalsHistory.hr.push(vals.heart_rate);
+  if (vals.oxygen_saturation)  vitalsHistory.o2.push(vals.oxygen_saturation);
+  if (vals.blood_glucose)      vitalsHistory.glucose.push(vals.blood_glucose / 2); // scale down for display
+  updateChart();
+
+  // Send to API for LLM analysis
+  try {
+    const res = await fetch(`${API_BASE}/vitals`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(vals),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      // Route user to chat with the analysis
+      showPage('chat');
+      appendMessage('agent', `📊 **Vitals Analysis**\n\nAlert Level: **${data.overall_alert}**\n\n${data.analysis}`, null);
+    }
+  } catch (e) {
+    // Offline: just show local analysis
+    showPage('chat');
+    appendMessage('agent', '⚠️ API offline — connected to local vitals analysis only. Values displayed in Vitals Monitor tab.\n\nStart the server with `python main.py serve` for full AI analysis.');
+  }
+}
+
+function updateVitalCard(key, value, threshold, valueId, statusId) {
+  document.getElementById(valueId).textContent = value;
+  const st = getVitalStatus(value, threshold.min, threshold.max);
+  const statusEl = document.getElementById(statusId);
+  statusEl.textContent = st.label;
+  statusEl.className = 'vitals-status ' + st.cls;
+}
+
+function updateBPCard(sys, dia) {
+  document.getElementById('vv-bp').textContent = `${sys||'—'}/${dia||'—'}`;
+  const sysStatus = sys ? getVitalStatus(sys, THRESHOLDS.bps.min, THRESHOLDS.bps.max) : null;
+  const statusEl  = document.getElementById('vs-bp');
+  if (sysStatus) {
+    statusEl.textContent = sysStatus.label;
+    statusEl.className = 'vitals-status ' + sysStatus.cls;
+  }
+}
+
+// ── Chart ─────────────────────────────────────────────────────────────────────
+function initChart() {
+  const ctx = document.getElementById('vitalsChart').getContext('2d');
+  vitalsChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: vitalsHistory.labels,
+      datasets: [
+        {
+          label: 'Heart Rate (bpm)',
+          data: vitalsHistory.hr,
+          borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.08)',
+          tension: 0.4, pointRadius: 4, borderWidth: 2,
+        },
+        {
+          label: 'O2 Saturation (%)',
+          data: vitalsHistory.o2,
+          borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.08)',
+          tension: 0.4, pointRadius: 4, borderWidth: 2,
+        },
+        {
+          label: 'Blood Glucose (/2)',
+          data: vitalsHistory.glucose,
+          borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.08)',
+          tension: 0.4, pointRadius: 4, borderWidth: 2,
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+      scales: {
+        x: { ticks: { color: '#4b5563', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { ticks: { color: '#4b5563', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      },
+    },
+  });
+}
+
+function updateChart() {
+  if (vitalsChart) {
+    vitalsChart.data.labels = vitalsHistory.labels.slice(-12);
+    vitalsChart.data.datasets[0].data = vitalsHistory.hr.slice(-12);
+    vitalsChart.data.datasets[1].data = vitalsHistory.o2.slice(-12);
+    vitalsChart.data.datasets[2].data = vitalsHistory.glucose.slice(-12);
+    vitalsChart.update();
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+initSession();
+initChart();
+</script>
+</body>
+</html>
